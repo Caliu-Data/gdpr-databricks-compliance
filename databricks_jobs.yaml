@@ -1,0 +1,91 @@
+# Databricks Jobs Configuration for GDPR Compliance
+# Deploy using: databricks jobs deploy databricks_jobs.yaml
+
+jobs:
+  - name: "gdpr_daily_compliance_checks"
+    new_cluster:
+      spark_version: "13.3.x-scala2.12"
+      node_type_id: "i3.xlarge"
+      num_workers: 2
+      spark_conf:
+        spark.databricks.cluster.profile: "singleNode"
+        spark.master: "local[*]"
+    libraries:
+      - pypi:
+          package: "databricks-gdpr-compliance"
+    schedule:
+      quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM
+      timezone_id: "UTC"
+    email_notifications:
+      on_failure: ["admin@example.com"]
+    max_retries: 2
+    min_retry_interval_millis: 60000
+    timeout_seconds: 3600
+    tasks:
+      - task_key: "daily_checks"
+        python_task:
+          python_file: "/Workspace/GDPR_Compliance/jobs/daily_gdpr_checks.py"
+    
+  - name: "gdpr_pii_detection"
+    new_cluster:
+      spark_version: "13.3.x-scala2.12"
+      node_type_id: "i3.xlarge"
+      num_workers: 1
+    libraries:
+      - pypi:
+          package: "databricks-gdpr-compliance"
+    timeout_seconds: 1800
+    tasks:
+      - task_key: "pii_detection"
+        python_task:
+          python_file: "/Workspace/GDPR_Compliance/jobs/pii_detection_job.py"
+          parameters:
+            - "--tables"
+            - "catalog.schema.table1"
+            - "catalog.schema.table2"
+            - "--sample-size"
+            - "1000"
+  
+  - name: "gdpr_data_processing"
+    new_cluster:
+      spark_version: "13.3.x-scala2.12"
+      node_type_id: "i3.xlarge"
+      num_workers: 2
+    libraries:
+      - pypi:
+          package: "databricks-gdpr-compliance"
+    timeout_seconds: 7200
+    tasks:
+      - task_key: "compliant_processing"
+        python_task:
+          python_file: "/Workspace/GDPR_Compliance/jobs/data_processing_job.py"
+          parameters:
+            - "--source-table"
+            - "catalog.schema.raw_data"
+            - "--target-table"
+            - "catalog.schema.processed_data"
+            - "--user"
+            - "system"
+            - "--ensure-k-anonymity"
+  
+  - name: "gdpr_compliance_report"
+    new_cluster:
+      spark_version: "13.3.x-scala2.12"
+      node_type_id: "i3.xlarge"
+      num_workers: 1
+    libraries:
+      - pypi:
+          package: "databricks-gdpr-compliance"
+    schedule:
+      quartz_cron_expression: "0 0 9 ? * MON"  # Weekly on Monday at 9 AM
+      timezone_id: "UTC"
+    timeout_seconds: 1800
+    tasks:
+      - task_key: "compliance_report"
+        python_task:
+          python_file: "/Workspace/GDPR_Compliance/jobs/compliance_report_job.py"
+          parameters:
+            - "--tables"
+            - "catalog.schema.table1"
+            - "catalog.schema.table2"
+
